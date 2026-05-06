@@ -21,7 +21,8 @@ let cfg = {
   startMass: 20,
   massPerPellet: 10,
   botCount: 5,
-  botBehavior: 'HUNTER'
+  botBehavior: 'HUNTER',
+  speedMult: 1.0
 };
 
 // ===================== CONSTANTS =====================
@@ -64,7 +65,7 @@ function centerOfMass(cells) {
 }
 
 function speed(mass) {
-  return Math.max(1.5, 6.25 * Math.pow(mass, -0.439));
+  return Math.max(1.5, 6.25 * Math.pow(mass, -0.439)) * cfg.speedMult;
 }
 
 // ===================== ENTITY FACTORIES =====================

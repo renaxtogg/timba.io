@@ -396,6 +396,11 @@ input[type=number]:focus { border-color: #e63946; }
           <input type="range" id="cfgMapSize" min="1000" max="8000" step="500" value="3000" oninput="updateSlider(this,'cfgMapSizeVal');sendConfig()">
           <span class="val" id="cfgMapSizeVal">3000</span>
         </div>
+        <div class="cfg-row">
+          <label>Velocidad de movimiento</label>
+          <input type="range" id="cfgSpeedMult" min="0.25" max="4" step="0.25" value="1" oninput="updateSliderFloat(this,'cfgSpeedMultVal');sendConfig()">
+          <span class="val" id="cfgSpeedMultVal">1x</span>
+        </div>
       </div>
 
       <!-- BOTS CONFIG -->
@@ -471,9 +476,7 @@ input[type=number]:focus { border-color: #e63946; }
 // BACKEND_URL: set via Vercel env var NEXT_PUBLIC_BACKEND_URL at build time,
 // or override window.BACKEND_URL before this script runs.
 // Fallback tries common Railway auto-generated names; update with real URL once known.
-const BACKEND_URL = (typeof window !== 'undefined' && window.BACKEND_URL)
-  || (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_BACKEND_URL)
-  || '__BACKEND_URL__';
+let BACKEND_URL = null;
 
 // ======================== KEY BINDINGS ========================
 const DEFAULT_KEYS = {
@@ -565,6 +568,10 @@ function updateSlider(el, valId) {
   document.getElementById(valId).textContent = el.value;
 }
 
+function updateSliderFloat(el, valId) {
+  document.getElementById(valId).textContent = parseFloat(el.value) + 'x';
+}
+
 function sendConfig() {
   if (!socket) return;
   const behavior = document.querySelector('input[name=botBehavior]:checked');
@@ -574,7 +581,8 @@ function sendConfig() {
     virusCount: +document.getElementById('cfgVirusCount').value,
     mapSize: +document.getElementById('cfgMapSize').value,
     botCount: +document.getElementById('cfgBotCount').value,
-    botBehavior: behavior ? behavior.value : 'HUNTER'
+    botBehavior: behavior ? behavior.value : 'HUNTER',
+    speedMult: +document.getElementById('cfgSpeedMult').value
   });
 }
 
@@ -1022,11 +1030,27 @@ function escHtml(s) {
 
 // ======================== INIT ========================
 loadKeys();
-connect();
 requestAnimationFrame(render);
 
-// Pre-connect so admin panel works immediately
-setTimeout(() => { sendConfig(); }, 1500);
+// Fetch backend URL from Vercel env var, then connect
+(async () => {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (data.backendUrl) {
+      BACKEND_URL = data.backendUrl;
+      console.log('Backend URL from config:', BACKEND_URL);
+    }
+  } catch (e) {
+    console.warn('Could not fetch /api/config, using fallback');
+  }
+  if (!BACKEND_URL) {
+    setConnStatus('⚠ Servidor no configurado. Ejecuta iniciar-juego.ps1', '#e63946');
+    return;
+  }
+  connect();
+  setTimeout(() => { sendConfig(); }, 1500);
+})();
 </script>
 </body>
 </html>
