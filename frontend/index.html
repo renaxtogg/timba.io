@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timba.io</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0f;
+  color: #fff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+canvas {
+  display: block;
+  position: fixed;
+  top: 0; left: 0;
+}
+
+/* ---- OVERLAY ---- */
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+#overlay.hidden { display: none; }
+
+.logo {
+  font-size: 64px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #e63946, #f4a261, #e9c46a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+  letter-spacing: -2px;
+  text-shadow: none;
+}
+
+.tagline {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 32px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.death-msg {
+  color: #e63946;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: none;
+}
+.death-score {
+  color: #888;
+  margin-bottom: 24px;
+  font-size: 14px;
+  display: none;
+}
+
+.join-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+#nameInput {
+  padding: 12px 20px;
+  background: #1e1e2e;
+  border: 2px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  width: 240px;
+  outline: none;
+  transition: border-color .2s;
+}
+#nameInput:focus { border-color: #e63946; }
+#nameInput::placeholder { color: #555; }
+
+#playBtn {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #e63946, #c1121f);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: transform .1s, opacity .2s;
+}
+#playBtn:hover { transform: scale(1.04); opacity: .95; }
+#playBtn:active { transform: scale(.97); }
+
+/* ---- ADMIN PANEL ---- */
+#adminPanel {
+  width: 100%;
+  max-width: 620px;
+  background: #12121f;
+  border: 1px solid #222;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #1a1a2e;
+  cursor: pointer;
+  user-select: none;
+}
+.admin-header h3 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #888; }
+.admin-toggle { color: #555; font-size: 18px; transition: transform .2s; }
+.admin-toggle.open { transform: rotate(180deg); }
+
+.admin-body { display: none; padding: 0 20px 20px; }
+.admin-body.open { display: block; }
+
+.admin-section {
+  margin-top: 20px;
+  border-top: 1px solid #222;
+  padding-top: 16px;
+}
+.admin-section h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #e63946;
+  margin-bottom: 14px;
+}
+
+.cfg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+.cfg-row label { font-size: 13px; color: #aaa; flex: 1; }
+.cfg-row .val { font-size: 12px; color: #666; width: 36px; text-align: right; }
+
+input[type=range] {
+  width: 160px;
+  accent-color: #e63946;
+  cursor: pointer;
+}
+input[type=number] {
+  width: 70px;
+  padding: 5px 8px;
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+input[type=number]:focus { border-color: #e63946; }
+
+.info-badge {
+  font-size: 12px;
+  color: #555;
+  background: #1e1e2e;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* Bot behavior radios */
+.radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border: 1px solid #333;
+  border-radius: 20px;
+  transition: border-color .15s, color .15s;
+}
+.radio-group label:has(input:checked) { border-color: #e63946; color: #e63946; }
+.radio-group input[type=radio] { display: none; }
+
+/* Key capture */
+.keybind-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.keybind-row span { font-size: 12px; color: #aaa; }
+.keybind-btn {
+  padding: 5px 12px;
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 70px;
+  text-align: center;
+  font-family: monospace;
+  transition: border-color .15s;
+}
+.keybind-btn.capturing { border-color: #e63946; color: #e63946; animation: blink .6s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* Connected players list */
+#playersList { margin-top: 8px; }
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.player-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.player-name { flex: 1; color: #ccc; }
+.assign-count {
+  width: 45px;
+  padding: 3px 6px;
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+.assign-btn {
+  padding: 4px 10px;
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.assign-btn:hover { border-color: #e63946; color: #e63946; }
+
+/* ---- HUD ---- */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+#hud.visible { display: block; }
+
+#massDisplay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+#massDisplay .mass-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+}
+#massDisplay .mass-label {
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+#leaderboard {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 12px 16px;
+  min-width: 180px;
+}
+#leaderboard h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #666;
+  margin-bottom: 8px;
+}
+.lb-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+.lb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.lb-name { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; }
+.lb-score { color: #666; font-size: 11px; font-variant-numeric: tabular-nums; }
+.lb-me { color: #fff; font-weight: 700; }
+.lb-me .lb-name { color: #fff; }
+
+#minimap {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0,0,0,.5);
+}
+
+#fpsDisplay {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  font-size: 11px;
+  color: #444;
+}
+</style>
+</head>
+<body>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div class="logo">timba.io</div>
+  <div class="tagline">Come. Grow. Dominate.</div>
+
+  <div class="death-msg" id="deathMsg">¡Fuiste comido!</div>
+  <div class="death-score" id="deathScore"></div>
+
+  <div class="join-box">
+    <input type="text" id="nameInput" placeholder="Tu nombre..." maxlength="16" autocomplete="off" spellcheck="false">
+    <button id="playBtn">JUGAR</button>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel">
+    <div class="admin-header" onclick="toggleAdmin()">
+      <h3>⚙ Panel de configuración</h3>
+      <span class="admin-toggle" id="adminToggle">▼</span>
+    </div>
+    <div class="admin-body" id="adminBody">
+
+      <!-- MAP CONFIG -->
+      <div class="admin-section">
+        <h4>Mapa</h4>
+        <div class="cfg-row">
+          <label>Tamaño inicial de células</label>
+          <input type="range" id="cfgStartMass" min="10" max="80" value="20" oninput="updateSlider(this,'cfgStartMassVal');sendConfig()">
+          <span class="val" id="cfgStartMassVal">20</span>
+        </div>
+        <div class="cfg-row">
+          <label>Masa por pellet</label>
+          <span class="info-badge">10 (fijo)</span>
+        </div>
+        <div class="cfg-row">
+          <label>Cantidad de pellets</label>
+          <input type="number" id="cfgFoodCount" value="150" min="10" max="1000" onchange="sendConfig()">
+        </div>
+        <div class="cfg-row">
+          <label>Virus / pinchos</label>
+          <input type="range" id="cfgVirusCount" min="0" max="30" value="12" oninput="updateSlider(this,'cfgVirusCountVal');sendConfig()">
+          <span class="val" id="cfgVirusCountVal">12</span>
+        </div>
+        <div class="cfg-row">
+          <label>Tamaño del mapa</label>
+          <input type="range" id="cfgMapSize" min="1000" max="8000" step="500" value="3000" oninput="updateSlider(this,'cfgMapSizeVal');sendConfig()">
+          <span class="val" id="cfgMapSizeVal">3000</span>
+        </div>
+      </div>
+
+      <!-- BOTS CONFIG -->
+      <div class="admin-section">
+        <h4>Bots</h4>
+        <div class="cfg-row">
+          <label>Cantidad de bots global</label>
+          <input type="number" id="cfgBotCount" value="5" min="0" max="50" onchange="sendConfig()">
+        </div>
+        <div class="cfg-row">
+          <label>Comportamiento por defecto</label>
+          <div class="radio-group">
+            <label><input type="radio" name="botBehavior" value="FEEDER" onchange="sendConfig()"> Feeder</label>
+            <label><input type="radio" name="botBehavior" value="TEAM" onchange="sendConfig()"> Team</label>
+            <label><input type="radio" name="botBehavior" value="HUNTER" checked onchange="sendConfig()"> Hunter</label>
+            <label><input type="radio" name="botBehavior" value="RANDOM" onchange="sendConfig()"> Random</label>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; font-size:12px; color:#555; margin-bottom:8px; letter-spacing:1px; text-transform:uppercase;">Bots por jugador conectado</div>
+        <div id="playersList">
+          <div style="font-size:12px;color:#444;font-style:italic;">Conéctate al juego para ver jugadores</div>
+        </div>
+      </div>
+
+      <!-- CONTROLS CONFIG -->
+      <div class="admin-section">
+        <h4>Controles</h4>
+        <div class="keybind-grid">
+          <div class="keybind-row">
+            <span>Dividirse</span>
+            <button class="keybind-btn" id="kb_split" onclick="captureKey('split')">Space</button>
+          </div>
+          <div class="keybind-row">
+            <span>Expulsar masa</span>
+            <button class="keybind-btn" id="kb_eject" onclick="captureKey('eject')">W</button>
+          </div>
+          <div class="keybind-row">
+            <span>Expulsar rápido</span>
+            <button class="keybind-btn" id="kb_ejectFast" onclick="captureKey('ejectFast')">Q</button>
+          </div>
+          <div class="keybind-row">
+            <span>Dividir máximo</span>
+            <button class="keybind-btn" id="kb_maxSplit" onclick="captureKey('maxSplit')">E</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<canvas id="canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="fpsDisplay">-- fps</div>
+  <div id="leaderboard">
+    <h4>Leaderboard</h4>
+    <div id="lbEntries"></div>
+  </div>
+  <div id="massDisplay">
+    <div class="mass-val" id="massVal">0</div>
+    <div class="mass-label">masa</div>
+  </div>
+  <canvas id="minimap"></canvas>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+// ======================== CONFIG ========================
+const BACKEND_URL = (typeof window !== 'undefined' && window.BACKEND_URL) || 'https://timba-io-backend.up.railway.app';
+
+// ======================== KEY BINDINGS ========================
+const DEFAULT_KEYS = {
+  split: 'Space',
+  eject: 'KeyW',
+  ejectFast: 'KeyQ',
+  maxSplit: 'KeyE'
+};
+
+let keys = { ...DEFAULT_KEYS };
+let capturingKey = null;
+
+function loadKeys() {
+  const saved = localStorage.getItem('timba_keys');
+  if (saved) {
+    try { Object.assign(keys, JSON.parse(saved)); } catch(e) {}
+  }
+  renderKeys();
+}
+
+function saveKeys() {
+  localStorage.setItem('timba_keys', JSON.stringify(keys));
+}
+
+function renderKeys() {
+  for (const [action, code] of Object.entries(keys)) {
+    const btn = document.getElementById('kb_' + action);
+    if (btn) btn.textContent = friendlyKey(code);
+  }
+}
+
+function friendlyKey(code) {
+  if (!code) return '?';
+  return code
+    .replace('Key', '')
+    .replace('Digit', '')
+    .replace('Arrow', '↑'.replace('Up','↑').replace('Down','↓').replace('Left','←').replace('Right','→'))
+    .replace('ArrowUp','↑').replace('ArrowDown','↓').replace('ArrowLeft','←').replace('ArrowRight','→');
+}
+
+function captureKey(action) {
+  if (capturingKey) {
+    const prev = document.getElementById('kb_' + capturingKey);
+    if (prev) prev.classList.remove('capturing');
+  }
+  capturingKey = action;
+  const btn = document.getElementById('kb_' + action);
+  if (btn) { btn.textContent = '...'; btn.classList.add('capturing'); }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (capturingKey) {
+    if (e.code === 'Escape') {
+      const btn = document.getElementById('kb_' + capturingKey);
+      if (btn) { btn.classList.remove('capturing'); btn.textContent = friendlyKey(keys[capturingKey]); }
+      capturingKey = null;
+      return;
+    }
+    keys[capturingKey] = e.code;
+    saveKeys();
+    const btn = document.getElementById('kb_' + capturingKey);
+    if (btn) { btn.classList.remove('capturing'); btn.textContent = friendlyKey(e.code); }
+    capturingKey = null;
+    e.preventDefault();
+    return;
+  }
+
+  if (!gameActive) return;
+
+  if (e.code === keys.split) { socket && socket.emit('player:action', { action: 'split' }); e.preventDefault(); }
+  else if (e.code === keys.ejectFast) { fastEjecting = true; e.preventDefault(); }
+  else if (e.code === keys.eject) { socket && socket.emit('player:action', { action: 'eject' }); e.preventDefault(); }
+  else if (e.code === keys.maxSplit) { socket && socket.emit('player:action', { action: 'maxSplit' }); e.preventDefault(); }
+}, true);
+
+document.addEventListener('keyup', function(e) {
+  if (e.code === keys.ejectFast) { fastEjecting = false; }
+}, true);
+
+// ======================== ADMIN PANEL ========================
+function toggleAdmin() {
+  const body = document.getElementById('adminBody');
+  const toggle = document.getElementById('adminToggle');
+  body.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+function updateSlider(el, valId) {
+  document.getElementById(valId).textContent = el.value;
+}
+
+function sendConfig() {
+  if (!socket) return;
+  const behavior = document.querySelector('input[name=botBehavior]:checked');
+  socket.emit('admin:config', {
+    startMass: +document.getElementById('cfgStartMass').value,
+    foodCount: +document.getElementById('cfgFoodCount').value,
+    virusCount: +document.getElementById('cfgVirusCount').value,
+    mapSize: +document.getElementById('cfgMapSize').value,
+    botCount: +document.getElementById('cfgBotCount').value,
+    botBehavior: behavior ? behavior.value : 'HUNTER'
+  });
+}
+
+// ======================== GAME STATE ========================
+let socket = null;
+let myId = null;
+let gameActive = false;
+let fastEjecting = false;
+let lastDeathScore = 0;
+
+let gameState = { players: [], bots: [], food: [], viruses: [], mapSize: 3000, leaderboard: [] };
+let camX = 1500, camY = 1500;
+let camScale = 1;
+let mouseX = 0, mouseY = 0;
+
+// ======================== CANVAS ========================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap');
+const mmCtx = minimapCanvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  minimapCanvas.width = 140;
+  minimapCanvas.height = 140;
+}
+resize();
+window.addEventListener('resize', resize);
+
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: false });
+
+// ======================== CONNECT ========================
+function connect() {
+  if (socket) { socket.disconnect(); socket = null; }
+
+  socket = io(BACKEND_URL, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000
+  });
+
+  socket.on('connect', () => {
+    console.log('Connected:', socket.id);
+  });
+
+  socket.on('player:joined', ({ id, color }) => {
+    myId = id;
+  });
+
+  socket.on('game:state', (state) => {
+    gameState = state;
+    updateLeaderboard(state.leaderboard);
+    updatePlayersList(state.players);
+  });
+
+  socket.on('player:died', ({ score, name }) => {
+    lastDeathScore = score;
+    endGame(score);
+  });
+
+  socket.on('disconnect', () => {
+    if (gameActive) endGame(0);
+  });
+}
+
+// ======================== PLAY/DEATH ========================
+document.getElementById('playBtn').addEventListener('click', startGame);
+document.getElementById('nameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') startGame();
+});
+
+function startGame() {
+  const name = document.getElementById('nameInput').value.trim() || 'Anónimo';
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('hud').classList.add('visible');
+  gameActive = true;
+
+  if (!socket || !socket.connected) connect();
+
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      socket.emit('player:join', { name });
+    } else {
+      socket.once('connect', () => socket.emit('player:join', { name }));
+    }
+  }, 100);
+}
+
+function endGame(score) {
+  gameActive = false;
+  myId = null;
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('hud').classList.remove('visible');
+
+  const msg = document.getElementById('deathMsg');
+  const scr = document.getElementById('deathScore');
+  msg.style.display = 'block';
+  scr.style.display = 'block';
+  scr.textContent = `Puntuación final: ${score} masa`;
+}
+
+// ======================== INPUT LOOP ========================
+function sendInput() {
+  if (!gameActive || !socket || !myId) return;
+
+  const me = getMyEntity();
+  if (!me || me.cells.length === 0) return;
+
+  let cx = 0, cy = 0;
+  for (const c of me.cells) { cx += c.x; cy += c.y; }
+  cx /= me.cells.length; cy /= me.cells.length;
+
+  const worldX = cx + (mouseX - canvas.width / 2) / camScale;
+  const worldY = cy + (mouseY - canvas.height / 2) / camScale;
+
+  socket.emit('player:input', { x: worldX, y: worldY });
+
+  if (fastEjecting) {
+    socket.emit('player:action', { action: 'ejectFast' });
+  }
+}
+
+setInterval(sendInput, 50);
+
+// ======================== RENDERING ========================
+function getMyEntity() {
+  if (!myId) return null;
+  return gameState.players.find(p => p.id === myId) || null;
+}
+
+function getMyMass() {
+  const me = getMyEntity();
+  if (!me) return 0;
+  return me.cells.reduce((s, c) => s + c.mass, 0);
+}
+
+let fpsCounter = 0, fpsTime = 0, fps = 0;
+
+function render(now) {
+  requestAnimationFrame(render);
+
+  // FPS
+  fpsCounter++;
+  if (now - fpsTime > 1000) {
+    fps = fpsCounter;
+    fpsCounter = 0;
+    fpsTime = now;
+    document.getElementById('fpsDisplay').textContent = `${fps} fps`;
+  }
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const me = getMyEntity();
+  if (!gameActive || !me) {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
+
+  // Camera
+  let cx = 0, cy = 0, totalMass = 0;
+  for (const c of me.cells) { cx += c.x * c.mass; cy += c.y * c.mass; totalMass += c.mass; }
+  cx /= totalMass; cy /= totalMass;
+
+  const targetScale = Math.min(1, Math.max(0.08, 64 / Math.sqrt(totalMass + 100)));
+  camX += (cx - camX) * 0.1;
+  camY += (cy - camY) * 0.1;
+  camScale += (targetScale - camScale) * 0.08;
+
+  document.getElementById('massVal').textContent = Math.round(totalMass);
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(camScale, camScale);
+  ctx.translate(-camX, -camY);
+
+  // Background
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, gameState.mapSize, gameState.mapSize);
+
+  // Grid
+  drawGrid(ctx);
+
+  // Map border
+  ctx.strokeStyle = '#e63946';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(0, 0, gameState.mapSize, gameState.mapSize);
+
+  // Food
+  for (const f of gameState.food) {
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
+    ctx.fill();
+  }
+
+  // Viruses
+  for (const v of gameState.viruses) {
+    drawVirus(ctx, v);
+  }
+
+  // Other players & bots (below me)
+  const others = [...gameState.bots, ...gameState.players.filter(p => p.id !== myId)];
+  for (const e of others) {
+    for (const c of e.cells) {
+      drawCell(ctx, c, e.color, e.name, false);
+    }
+  }
+
+  // My cells (on top)
+  for (const c of me.cells) {
+    drawCell(ctx, c, me.color, me.name, true);
+  }
+
+  ctx.restore();
+
+  // Minimap
+  drawMinimap();
+}
+
+function drawGrid(ctx) {
+  const step = 60;
+  const ms = gameState.mapSize;
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= ms; x += step) {
+    ctx.moveTo(x, 0); ctx.lineTo(x, ms);
+  }
+  for (let y = 0; y <= ms; y += step) {
+    ctx.moveTo(0, y); ctx.lineTo(ms, y);
+  }
+  ctx.stroke();
+}
+
+function drawCell(ctx, cell, color, name, isMe) {
+  ctx.beginPath();
+  ctx.arc(cell.x, cell.y, cell.r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Outline
+  ctx.strokeStyle = isMe ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = Math.max(2, cell.r * 0.05);
+  ctx.stroke();
+
+  // Name
+  if (cell.r > 16) {
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    const fontSize = Math.max(10, Math.min(cell.r * 0.4, 24));
+    ctx.font = `bold ${fontSize}px Segoe UI, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, cell.x, cell.y);
+
+    if (cell.r > 28) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      const mFont = Math.max(8, fontSize * 0.65);
+      ctx.font = `${mFont}px Segoe UI, sans-serif`;
+      ctx.fillText(Math.round(cell.mass), cell.x, cell.y + fontSize * 0.7);
+    }
+  }
+}
+
+function drawVirus(ctx, v) {
+  const spikes = 16;
+  const outerR = v.r;
+  const innerR = v.r * 0.72;
+
+  ctx.beginPath();
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+    const r = (i % 2 === 0) ? outerR : innerR;
+    const px = v.x + Math.cos(angle) * r;
+    const py = v.y + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+
+  ctx.fillStyle = 'rgba(0, 160, 0, 0.75)';
+  ctx.fill();
+  ctx.strokeStyle = '#00ff44';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function drawMinimap() {
+  const mm = minimapCanvas;
+  const mc = mmCtx;
+  const ms = gameState.mapSize;
+  const sz = mm.width;
+
+  mc.fillStyle = 'rgba(0,0,0,0.7)';
+  mc.fillRect(0, 0, sz, sz);
+
+  const scale = sz / ms;
+
+  // Food dots
+  mc.fillStyle = 'rgba(255,255,255,0.15)';
+  for (const f of gameState.food) {
+    mc.fillRect(f.x * scale - 0.5, f.y * scale - 0.5, 1.5, 1.5);
+  }
+
+  // Viruses
+  mc.fillStyle = '#00aa00';
+  for (const v of gameState.viruses) {
+    mc.beginPath();
+    mc.arc(v.x * scale, v.y * scale, 2, 0, Math.PI * 2);
+    mc.fill();
+  }
+
+  // Other entities
+  for (const e of [...gameState.bots, ...gameState.players]) {
+    const isMe = e.id === myId;
+    for (const c of e.cells) {
+      const r = Math.max(2, c.r * scale);
+      mc.beginPath();
+      mc.arc(c.x * scale, c.y * scale, r, 0, Math.PI * 2);
+      mc.fillStyle = isMe ? '#fff' : e.color;
+      mc.fill();
+    }
+  }
+
+  // Viewport indicator
+  if (myId) {
+    const me = getMyEntity();
+    if (me) {
+      let cx = 0, cy = 0;
+      for (const c of me.cells) { cx += c.x; cy += c.y; }
+      cx /= me.cells.length; cy /= me.cells.length;
+      const vw = (canvas.width / camScale) * scale;
+      const vh = (canvas.height / camScale) * scale;
+      mc.strokeStyle = 'rgba(255,255,255,0.4)';
+      mc.lineWidth = 1;
+      mc.strokeRect((cx - canvas.width / camScale / 2) * scale, (cy - canvas.height / camScale / 2) * scale, vw, vh);
+    }
+  }
+}
+
+// ======================== LEADERBOARD ========================
+function updateLeaderboard(lb) {
+  if (!lb) return;
+  const container = document.getElementById('lbEntries');
+  container.innerHTML = '';
+  lb.forEach((entry, i) => {
+    const isMe = entry.name === (getMyEntity() && getMyEntity().name);
+    const div = document.createElement('div');
+    div.className = 'lb-entry' + (isMe ? ' lb-me' : '');
+    div.innerHTML = `
+      <span class="lb-dot" style="background:${entry.color}"></span>
+      <span class="lb-name">${escHtml(entry.name)}</span>
+      <span class="lb-score">${entry.score}</span>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ======================== PLAYERS LIST (admin) ========================
+function updatePlayersList(players) {
+  const container = document.getElementById('playersList');
+  if (!container) return;
+  if (players.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:#444;font-style:italic;">Sin jugadores conectados</div>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const p of players) {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    row.innerHTML = `
+      <span class="player-dot" style="background:${p.color}"></span>
+      <span class="player-name">${escHtml(p.name)}</span>
+      <select style="background:#1e1e2e;border:1px solid #333;color:#aaa;font-size:11px;padding:2px 4px;border-radius:4px;">
+        <option value="FEEDER">Feeder</option>
+        <option value="TEAM">Team</option>
+        <option value="HUNTER" selected>Hunter</option>
+        <option value="RANDOM">Random</option>
+      </select>
+      <input type="number" class="assign-count" value="1" min="0" max="10">
+      <button class="assign-btn" data-id="${p.id}">Asignar</button>
+    `;
+    const btn = row.querySelector('.assign-btn');
+    btn.addEventListener('click', () => {
+      const behavior = row.querySelector('select').value;
+      const count = +row.querySelector('.assign-count').value;
+      if (socket) socket.emit('admin:assign_bot', { targetId: p.id, behavior, count });
+    });
+    container.appendChild(row);
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ======================== INIT ========================
+loadKeys();
+connect();
+requestAnimationFrame(render);
+
+// Pre-connect so admin panel works immediately
+setTimeout(() => { sendConfig(); }, 1500);
+</script>
+</body>
+</html>
