@@ -355,6 +355,7 @@ input[type=number]:focus { border-color: #e63946; }
 
   <div class="death-msg" id="deathMsg">¡Fuiste comido!</div>
   <div class="death-score" id="deathScore"></div>
+  <div id="connStatus" style="color:#f4a261;font-size:13px;margin-bottom:10px;display:none;"></div>
 
   <div class="join-box">
     <input type="text" id="nameInput" placeholder="Tu nombre..." maxlength="16" autocomplete="off" spellcheck="false">
@@ -467,7 +468,12 @@ input[type=number]:focus { border-color: #e63946; }
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 // ======================== CONFIG ========================
-const BACKEND_URL = (typeof window !== 'undefined' && window.BACKEND_URL) || 'https://timba-io-backend.up.railway.app';
+// BACKEND_URL: set via Vercel env var NEXT_PUBLIC_BACKEND_URL at build time,
+// or override window.BACKEND_URL before this script runs.
+// Fallback tries common Railway auto-generated names; update with real URL once known.
+const BACKEND_URL = (typeof window !== 'undefined' && window.BACKEND_URL)
+  || (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_BACKEND_URL)
+  || '__BACKEND_URL__';
 
 // ======================== KEY BINDINGS ========================
 const DEFAULT_KEYS = {
@@ -612,17 +618,48 @@ canvas.addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 // ======================== CONNECT ========================
+function setConnStatus(msg, color) {
+  const el = document.getElementById('connStatus');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.color = color || '#f4a261';
+  el.style.display = 'block';
+}
+
 function connect() {
   if (socket) { socket.disconnect(); socket = null; }
+
+  if (!BACKEND_URL || BACKEND_URL === '__BACKEND_URL__') {
+    setConnStatus('⚠ Backend URL no configurada. Revisa la variable de entorno.', '#e63946');
+    return;
+  }
+
+  setConnStatus('Conectando al servidor...', '#f4a261');
 
   socket = io(BACKEND_URL, {
     transports: ['websocket', 'polling'],
     reconnection: true,
-    reconnectionDelay: 1000
+    reconnectionDelay: 1000,
+    timeout: 8000
   });
 
   socket.on('connect', () => {
     console.log('Connected:', socket.id);
+    setConnStatus(null);
+    document.getElementById('playBtn').disabled = false;
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('Connection error:', err.message);
+    setConnStatus(`⚠ No se pudo conectar al servidor (${err.message})`, '#e63946');
+    document.getElementById('playBtn').disabled = true;
+    // If we were in game, go back to overlay
+    if (gameActive) {
+      gameActive = false;
+      myId = null;
+      document.getElementById('overlay').classList.remove('hidden');
+      document.getElementById('hud').classList.remove('visible');
+    }
   });
 
   socket.on('player:joined', ({ id, color }) => {
@@ -653,19 +690,25 @@ document.getElementById('nameInput').addEventListener('keydown', (e) => {
 
 function startGame() {
   const name = document.getElementById('nameInput').value.trim() || 'Anónimo';
+
+  if (!socket || !socket.connected) {
+    setConnStatus('Conectando...', '#f4a261');
+    connect();
+    socket.once('connect', () => doJoin(name));
+    socket.once('connect_error', () => {
+      // Error handler in connect() will show the message
+    });
+    return;
+  }
+
+  doJoin(name);
+}
+
+function doJoin(name) {
   document.getElementById('overlay').classList.add('hidden');
   document.getElementById('hud').classList.add('visible');
   gameActive = true;
-
-  if (!socket || !socket.connected) connect();
-
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      socket.emit('player:join', { name });
-    } else {
-      socket.once('connect', () => socket.emit('player:join', { name }));
-    }
-  }, 100);
+  socket.emit('player:join', { name });
 }
 
 function endGame(score) {
